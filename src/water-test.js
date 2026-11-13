@@ -14,7 +14,7 @@ export async function verifyWaterModel(){
   for(let i=0;i<data.length;i+=4){water+=data[i];stored+=data[i+1];flux+=data[i+2];supply+=data[i+3];min=Math.min(min,data[i],data[i+1]);if((i/4)%n>=10)downstream+=data[i];}
   const result={water,stored,flux,supply,downstream,min,balanceError:water+stored-supply};
   budgetScale=Math.max(budgetScale,Math.abs(supply));
-  if(min<0||Math.abs(result.balanceError)>Math.max(.02,budgetScale*.0001))throw Error('Water accounting failed: '+JSON.stringify(result));return result;
+  if(min<0||Math.abs(result.balanceError)>Math.max(.02,budgetScale*.0001))throw Error('水量核算失败: '+JSON.stringify(result));return result;
  }
  const assert=(condition,message)=>{if(!condition)throw Error(message);};
  await steps(10,.1,0);const dry=await sample();assert(dry.water===0&&dry.stored===0,'Dry start creates no water');

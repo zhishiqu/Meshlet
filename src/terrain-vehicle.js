@@ -4,6 +4,8 @@ import { createVehiclePhysics,vehicleSpec } from './vehicle-physics.js';
 
 const ASSET='/assets/vehicles/raptor/source/2024_ford_f-150_raptor_r.glb';
 export async function createTerrainVehicle(renderer,surface,spawn,lighting){
+ const head=await fetch(ASSET,{method:'HEAD'}).catch(()=>({ok:false}));
+ if(!head.ok)throw new Error('Raptor 模型未安装（可选）。下载后放入 public/assets/vehicles/raptor/source/ 目录。地形探索不受影响。');
  const gltf=await new GLTFLoader().loadAsync(ASSET);
  const scene=new THREE.Scene(),chassis=new THREE.Group();scene.add(chassis);
  // The FBX export's 0.01 root transform makes this metre-authored model 100x too small.
@@ -58,12 +60,12 @@ export async function createTerrainVehicle(renderer,surface,spawn,lighting){
   }
   if(time-lastTelemetry>200){lastTelemetry=time;
    const contacts=snapshot.wheels.filter(w=>w.contact).length;
-   document.getElementById('vehicle-status').textContent=`${Math.abs(snapshot.speed*3.6).toFixed(0)} km/h · ${snapshot.speed<-.3?'R':'D'} · ${contacts}/4 tyres grounded`;
+   document.getElementById('vehicle-status').textContent=`${Math.abs(snapshot.speed*3.6).toFixed(0)} km/h · ${snapshot.speed<-.3?'倒':'前'} · ${contacts}/4 轮胎接地`;
    document.body.dataset.vehicle=JSON.stringify({...snapshot,active,triangles,riggedWheels:wheels.length,collisionShapes:physics.colliderCount});
   }
  }
  lighting.setVehicleScene(scene);
  function flip(){const p=physics.state();heading.set(0,0,1).applyQuaternion(new THREE.Quaternion().copy(p.rotation));physics.reset(p.position.x,p.position.z,Math.atan2(heading.x,heading.z));camReady=false;}
  function recover(){const p=physics.state().position;let best=Infinity,spot={x:p.x,z:p.z};for(let dz=-24;dz<=24;dz+=3)for(let dx=-24;dx<=24;dx+=3){const x=p.x+dx,z=p.z+dz,h=surface.height(x,z);const score=Math.abs(surface.height(x+3,z)-h)+Math.abs(surface.height(x-3,z)-h)+Math.abs(surface.height(x,z+4)-h)+Math.abs(surface.height(x,z-4)-h)+Math.hypot(dx,dz)*.008;if(score<best){best=score;spot={x,z};}}physics.reset(spot.x,spot.z);camReady=false;}
- return {update,get active(){return active;},orbit(dx,dy){orbitYaw-=dx*.005;orbitPitch=THREE.MathUtils.clamp(orbitPitch+dy*.004,-.08,1.25);},setActive(v){active=v;camReady=false;document.getElementById('drive').textContent=v?'Exit Raptor / V':'Drive Raptor / V';document.body.classList.toggle('driving',v);},reset:recover,flip,spawn(){physics.reset();camReady=false;},position:chassis.position};
+ return {update,get active(){return active;},orbit(dx,dy){orbitYaw-=dx*.005;orbitPitch=THREE.MathUtils.clamp(orbitPitch+dy*.004,-.08,1.25);},setActive(v){active=v;camReady=false;document.getElementById('drive').textContent=v?'下车 / V':'驾驶 Raptor / V';document.body.classList.toggle('driving',v);},reset:recover,flip,spawn(){physics.reset();camReady=false;},position:chassis.position};
 }

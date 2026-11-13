@@ -2,7 +2,7 @@
 // mode, grouping 8 x 4 quads directly avoids welding and clustering it again.
 // Each group contains exactly 64 triangles, matching the Three.js pipeline.
 export function packTerrainGrid(pos, normal, uv, lod, sourceIndex, segments) {
- if(segments%8!==0)throw Error('Terrain grid size must be divisible by eight');
+ if(segments%8!==0)throw Error('地形网格尺寸必须是 8 的倍数');
  const vertexCount=pos.length/3,vertexArray=new Float32Array(vertexCount*12);
  for(let i=0;i<vertexCount;i++){
   const v=i*12,p=i*3,t=i*2,l=i*4;

@@ -23,28 +23,28 @@ async function start(){
  const loadStarted=performance.now();
  const root='/assets/badlands-v3/';
  document.body.dataset.terrainSource=root;
- const meta=await fetch(root+'simulation.json').then(r=>{if(!r.ok)throw Error('The new erosion bake is still being prepared.');return r.json();});
+ const meta=await fetch(root+'simulation.json').then(r=>{if(!r.ok)throw Error('新的侵蚀烘焙数据仍在准备中。');return r.json();});
  const world=meta.worldSize,segments=256,maxLevel=Math.round(Math.log2(meta.logicalRenderGrid/segments));
  state.simulation=meta;state.modelYears=meta.simulatedYears||0;state.logicalTriangles=meta.logicalTriangles;
- $('logical').textContent=fmt(meta.logicalTriangles);$('area').textContent=`${(world/1000).toFixed(3)} km across / ${(world*world/1e6).toFixed(0)} km²`;
- $('provenance').textContent=`${meta.size.toLocaleString()}² source heightfield / ${(world/(meta.size-1)).toFixed(2)} m per height sample. Finer mesh spacing adds interpolation and shallow material relief. Ten independently generated 1,254² sources baked into 2K material arrays.${root.includes('badlands-rain')?' Experimental rain refinement; no calibrated geological age.':''}`;
- status('Loading eroded heightfield and surface maps...');
+ $('logical').textContent=fmt(meta.logicalTriangles);$('area').textContent=`横跨 ${(world/1000).toFixed(3)} 公里 / 面积 ${(world*world/1e6).toFixed(0)} km²`;
+ $('provenance').textContent=`${meta.size.toLocaleString()}² 原始高度场 / 每采样点 ${(world/(meta.size-1)).toFixed(2)} 米。更细的网格间距带来插值与浅材质起伏。10 份独立生成的 1,254² 源数据烘焙为 2K 材质数组。${root.includes('badlands-rain')?' 实验性降雨细化；未校准地质年代。':''}`;
+ status('正在加载侵蚀高度场与地表贴图...');
  const [heightBuffer,fieldBuffer,groundBakes]=await Promise.all([fetch(root+'height.bin').then(r=>r.arrayBuffer()),fetch(root+'preview-fields.bin').then(r=>r.arrayBuffer()),loadGroundVariants()]);
  const surface=makeSurface(new Float32Array(heightBuffer),new Float32Array(fieldBuffer),meta.size,meta.previewSize,world,groundBakes.height);
- const adapter=await navigator.gpu?.requestAdapter({powerPreference:'high-performance'});if(!adapter)throw Error('Hardware WebGPU is required.');
+ const adapter=await navigator.gpu?.requestAdapter({powerPreference:'high-performance'});if(!adapter)throw Error('需要硬件 WebGPU 支持。');
  const storageLimit=adapter.limits.maxStorageBufferBindingSize;
  const vertexCount=(segments+1)**2+(segments+1)*4;
  const poolCount=storageLimit>=1024**3?2:1;
  const tilesPerPool=Math.max(48,Math.floor(storageLimit*.82/(vertexCount*48)));
  const maxCacheTiles=Math.min(768,tilesPerPool*poolCount);
  const maxLeaves=Math.floor(maxCacheTiles*.72);
- const maximumOption=$('budget').options[$('budget').options.length-1];maximumOption.value=String(maxLeaves);maximumOption.textContent='Maximum / '+maxLeaves+' dense tiles';maximumOption.selected=true;
- const renderer=new THREE.WebGPURenderer({antialias:true,requiredLimits:{maxBufferSize:adapter.limits.maxBufferSize,maxStorageBufferBindingSize:storageLimit,maxSampledTexturesPerShaderStage:Math.min(24,adapter.limits.maxSampledTexturesPerShaderStage)}});
+ const maximumOption=$('budget').options[$('budget').options.length-1];maximumOption.value=String(maxLeaves);maximumOption.textContent='最大 / '+maxLeaves+' 致密瓦片';maximumOption.selected=true;
+ const renderer=new THREE.WebGPURenderer({antialias:true,requiredLimits:{maxBufferSize:adapter.limits.maxBufferSize,maxStorageBufferBindingSize:storageLimit,maxSampledTexturesPerShaderStage:Math.min(64,Math.max(24,adapter.limits.maxSampledTexturesPerShaderStage))}});
  document.body.dataset.gpuLimits=JSON.stringify({storageLimit,maxBuffer:adapter.limits.maxBufferSize,poolCount,maxCacheTiles,maxLeaves,segments});
  renderer.setPixelRatio(1);renderer.setSize(innerWidth,innerHeight);await renderer.init();await ready;
- if(!renderer.backend.isWebGPUBackend)throw Error('Hardware WebGPU required.');
+ if(!renderer.backend.isWebGPUBackend)throw Error('需要硬件 WebGPU 支持。');
  renderer.backend.device.addEventListener('uncapturederror',e=>fail(e.error));
- renderer.backend.device.lost.then(e=>{if(e.reason!=='destroyed')fail('GPU device lost: '+e.message);});
+ renderer.backend.device.lost.then(e=>{if(e.reason!=='destroyed')fail('GPU 设备丢失: '+e.message);});
  renderer.info.autoReset=false;$('viewport').append(renderer.domElement);
  const pipeline=new MeshletDrawingPipeline({lodThreshold:0});renderer.drawingPipeline=pipeline;
  for(let p=0;p<poolCount;p++)pipeline.reserveGeometry(vertexCount*3*Math.ceil(maxCacheTiles/poolCount),Math.ceil((segments*segments*6+segments*24)*1.08*Math.ceil(maxCacheTiles/poolCount)),'terrain-'+p);
@@ -54,7 +54,7 @@ async function start(){
  let fly=false,verticalVelocity=0,dragLook=null,canLock=true;
  let vehicle=null;
  const canvas=renderer.domElement;
- function setFly(value){vehicle?.setActive(false);fly=value;verticalVelocity=0;$('camera-mode').textContent=fly?'Fly mode / F to walk':'Walk mode / F to fly';document.body.dataset.cameraMode=fly?'fly':'walk';}
+ function setFly(value){vehicle?.setActive(false);fly=value;verticalVelocity=0;$('camera-mode').textContent=fly?'飞行模式 / F 切换行走':'行走模式 / F 切换飞行';document.body.dataset.cameraMode=fly?'fly':'walk';}
  $('camera-mode').onclick=()=>setFly(!fly);
  const locked=()=>document.pointerLockElement===canvas;
  function look(dx,dy){if(vehicle?.active){vehicle.orbit(dx,dy);return;}lookEuler.setFromQuaternion(camera.quaternion);lookEuler.y-=dx*.0016;lookEuler.x=Math.max(-Math.PI/2+.02,Math.min(Math.PI/2-.02,lookEuler.x-dy*.0016));camera.quaternion.setFromEuler(lookEuler);}
@@ -72,7 +72,7 @@ async function start(){
  document.addEventListener('pointerlockerror',()=>{canLock=false;document.body.dataset.lookInput='drag';});
  canvas.addEventListener('pointercancel',()=>dragLook=null);
  setFly(false);
- const loader=new THREE.TextureLoader();loader.manager.onError=url=>fail("Texture failed: "+url);
+ const loader=new THREE.TextureLoader();loader.manager.onError=url=>fail("贴图加载失败: "+url);
  const [albedo,orm,terrainNormal,geologyMap]=await Promise.all(['albedo.jpg','orm.png','terrain-normal.png',...(meta.materialMask?['geology.png']:[])].map(p=>loader.loadAsync(root+p)));
  albedo.colorSpace=THREE.SRGBColorSpace;
  for(const t of [albedo,terrainNormal,orm])t.anisotropy=8;
@@ -101,7 +101,7 @@ async function start(){
  material.userData.meshletConservativeBounds=true; // Worker bounds contain both morph endpoints.
  material.normalScale.set(.7,.7);
  const naturalNodes=groundVariantNodes(groundBakes,albedo,terrainNormal,orm,geologyMap);Object.assign(material,naturalNodes);material.normalMap=null;
- status('Loading path-traced lighting and cloud volume...');
+ status('正在加载路径追踪光照与云层体积...');
  const lighting=await createTerrainLighting(renderer,scene,camera,material,heightBuffer,meta);
  state.lighting=lighting.meta;
  Object.assign(naturalNodes,{colorNode:material.colorNode,normalNode:material.normalNode,roughnessNode:material.roughnessNode});
@@ -136,7 +136,7 @@ async function start(){
   state.materialVariants=groundBakes.meta.count;
   if(state.ready&&!state.initialReadyMs)state.initialReadyMs=performance.now()-loadStarted;
   document.body.dataset.terrainState=JSON.stringify({firstGeometryMs:state.firstGeometryMs,initialReadyMs:state.initialReadyMs,segments,workers:workers.length,ready:state.ready,tiles:state.tileCount,cached:cache.size,spacing:world/(segments*2**state.maxTileLevel),pending:queue.length,materialVariants:state.materialVariants,modelYears:state.modelYears,coverage:state.coverage,transitions:state.transitions,errors:state.errors.length,workerP95:percentile(state.workerMs,.95),installP95:percentile(state.installMs,.95),cameraMode:fly?'fly':'walk',orientation:camera.quaternion.toArray(),camera:camera.position.toArray(),sharedWorkerData:state.sharedWorkerData});
-  if(!samples&&!state.errors.length)status(`${state.ready?'Ready':'Streaming'} / ${state.tileCount} HLOD tiles / ${(world/(segments*2**state.maxTileLevel)).toFixed(3)} m / 10 baked material variants`);
+  if(!samples&&!state.errors.length)status(`${state.ready?'就绪':'流式传输中'} / ${state.tileCount} 个 HLOD 瓦片 / ${(world/(segments*2**state.maxTileLevel)).toFixed(3)} 米 / 10 种烘焙材质变体`);
  }
  function distanceTo(t){const span=world/2**t.level,x=-world/2+(t.tx+.5)*span,z=-world/2+(t.tz+.5)*span;return Math.hypot(x-camera.position.x,z-camera.position.z,groundClearance);}
  function plan(force=false){
@@ -230,7 +230,7 @@ async function start(){
   const old=cache.get(d.id);
   if((old&&!d.upgrade)||(!old&&!wanted.has(d.id)))return false;
   const begin=performance.now(),g=new THREE.BufferGeometry(),slot=old?old.slot:freeSlots.pop();
-  if(slot===undefined)throw Error('HLOD uniform slot pool exhausted');
+  if(slot===undefined)throw Error('HLOD uniform 槽池已耗尽');
   const poolLoads=Array.from({length:poolCount},()=>0);
   for(const e of cache.values())poolLoads[e.poolId]++;
   const poolId=old?old.poolId:poolLoads.indexOf(Math.min(...poolLoads));
@@ -278,7 +278,7 @@ async function start(){
  // Search the surrounding patch for a level parking footprint without editing it.
  let parking={x:-8296,z:752},bestParking=Infinity;
  for(let z=720;z<=800;z+=4)for(let x=-8340;x<=-8250;x+=4){const h=surface.height(x,z);let error=0;for(const [dx,dz] of [[-3,-4],[3,-4],[-3,4],[3,4]])error+=Math.abs(surface.height(x+dx,z+dz)-h);const score=error+Math.hypot(x+8296,z-752)*.001;if(score<bestParking){bestParking=score;parking={x,z};}}
- createTerrainVehicle(renderer,surface,parking,lighting).then(v=>{vehicle=v;for(const id of ['drive','vehicle-reset','vehicle-spawn','vehicle-flip'])$(id).disabled=false;v.setActive(true);}).catch(e=>{$('vehicle-status').textContent='Raptor unavailable: '+e.message;document.body.dataset.vehicleError=e.stack;});
+ createTerrainVehicle(renderer,surface,parking,lighting).then(v=>{vehicle=v;for(const id of ['drive','vehicle-reset','vehicle-spawn','vehicle-flip'])$(id).disabled=false;v.setActive(true);}).catch(e=>{$('vehicle-status').textContent='🚗 '+e.message;document.body.dataset.vehicleError=e.stack;document.body.dataset.firstGpuError||=e.message;});
  const forward=new THREE.Vector3(),right=new THREE.Vector3(),move=new THREE.Vector3();let previous=0,lastHud=0,motion=null;
  renderer.setAnimationLoop(time=>{
   const dt=previous?time-previous:16.7;previous=time;clock.value=time/1000;
@@ -303,16 +303,16 @@ async function start(){
   if(time-lastHud>400){state.meshlets={...pipeline.info};state.gpuMiB=renderer.info.memory.total/1048576;state.fps=1000/dt;$('triangles').textContent=`${fmt(state.residentTriangles||0)} / ${fmt(pipeline.info.triangles)}`;$('fps').textContent=state.fps.toFixed(0);$('memory').textContent=state.gpuMiB.toFixed(0)+' MiB';publish();lastHud=time;}
  });
  async function measure(moving=false){
-  if(samples)return;if(!state.ready){status('Wait for the initial HLOD cover to finish streaming.');return;}
+  if(samples)return;if(!state.ready){status('请等待初始 HLOD 覆盖加载完成。');return;}
   $('measure').disabled=$('movement').disabled=true;const before=state.transitions;
   samples={frames:[],drawn:[],streamingFrames:0,overflow:0,holes:0,hidden:document.visibilityState!=='visible'};
   const visibility=()=>{if(document.visibilityState!=='visible')samples&&(samples.hidden=true);};document.addEventListener('visibilitychange',visibility);
   if(moving){camera.getWorldDirection(forward);forward.y=0;forward.normalize();motion={start:performance.now(),camera:camera.position.clone(),direction:forward.clone()};}
-  status(moving?'Measuring 220 m HLOD traversal...':'Measuring settled frame times...');
+  status(moving?'正在测量 220 m HLOD 穿越...':'正在测量稳定帧时间...');
   await new Promise(r=>setTimeout(r,moving?12000:8000));motion=null;const s=samples;samples=null;document.removeEventListener('visibilitychange',visibility);
   const elapsed=s.frames.reduce((a,b)=>a+b,0);
   const result={mode:moving?'movement':'settled',fps:1000*s.frames.length/elapsed,p95:percentile(s.frames,.95),p99:percentile(s.frames,.99),maxFrameMs:Math.max(...s.frames),frames:s.frames.length,streamingFrames:s.streamingFrames,overflowFrames:s.overflow,uncoveredFrames:s.holes,transitions:state.transitions-before,valid:!s.hidden&&!s.overflow&&!s.holes&&state.errors.length===0,drawnMean:s.drawn.reduce((a,b)=>a+b,0)/s.drawn.length,residentTriangles:state.residentTriangles,materialVariants:state.materialVariants,meshlets:{...pipeline.info},workerP95:percentile(state.workerMs,.95),installP95:percentile(state.installMs,.95),gpuMiB:state.gpuMiB};
-  state.records.push(result);document.body.dataset.benchmark=JSON.stringify(result);$('result').textContent=`${result.valid?'':'INVALID / '}${result.fps.toFixed(1)} FPS / p95 ${result.p95.toFixed(1)} ms / ${s.holes} uncovered frames / ${s.overflow} overflows`;
+  state.records.push(result);document.body.dataset.benchmark=JSON.stringify(result);$('result').textContent=`${result.valid?'':'无效 / '}${result.fps.toFixed(1)} FPS / p95 ${result.p95.toFixed(1)} ms / ${s.holes} 未覆盖帧 / ${s.overflow} 溢出`;
   $('measure').disabled=$('movement').disabled=false;
  }
  $('measure').onclick=()=>measure();$('movement').onclick=()=>measure(true);

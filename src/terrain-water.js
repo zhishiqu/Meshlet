@@ -145,7 +145,7 @@ fn waterColor(p: vec3<f32>, screen: vec2<f32>, state: texture_2d<f32>, bed: text
  return vec4<f32>(mix(under,sky,fresnel)+glint,smoothstep(.015,.05,depth)*smoothstep(0.0,.08,edge));
 }`, [waterRead,heightRead,surfaceLevel]);
 
-async function load(url){const r=await fetch(url);if(!r.ok)throw Error('Hydrology asset failed: '+url);return r.arrayBuffer();}
+async function load(url){const r=await fetch(url);if(!r.ok)throw Error('水文资产加载失败: '+url);return r.arrayBuffer();}
 function dataTexture(data,n){const t=new THREE.DataTexture(data,n,n,THREE.RGBAFormat,THREE.FloatType);t.minFilter=t.magFilter=THREE.NearestFilter;t.needsUpdate=true;return t;}
 
 export async function createTerrainWater(renderer,material,context){
@@ -204,15 +204,15 @@ export async function createTerrainWater(renderer,material,context){
  let lastUpdate=0,simSeconds=0,lastStats=0,reading=false,latest=null,cycle=null,regionalPending=0,lastRegional=0,waterActive=false;
  const rainControl=document.getElementById('rain-rate'),speedControl=document.getElementById('weather-speed'),status=document.getElementById('water-status');
  const testButton=document.getElementById('rain-test');
- document.getElementById('solver-check').onclick=async e=>{const button=e.target;button.disabled=true;button.textContent='Checking flow and water balance...';try{const {verifyWaterModel}=await import('./water-test.js');const result=await verifyWaterModel();document.body.dataset.solverTest=JSON.stringify(result);button.textContent='Solver checks passed';}catch(error){document.body.dataset.solverTest=JSON.stringify({pass:false,error:error.stack});button.textContent='Solver check failed';}finally{button.disabled=false;}};
- function endTest(){cycle=null;rainControl.disabled=speedControl.disabled=false;testButton.textContent='Test rain → runoff → dry / 75 s';}
+ document.getElementById('solver-check').onclick=async e=>{const button=e.target;button.disabled=true;button.textContent='正在检查流量与水量平衡...';try{const {verifyWaterModel}=await import('./water-test.js');const result=await verifyWaterModel();document.body.dataset.solverTest=JSON.stringify(result);button.textContent='求解器检查通过';}catch(error){document.body.dataset.solverTest=JSON.stringify({pass:false,error:error.stack});button.textContent='求解器检查失败';}finally{button.disabled=false;}};
+ function endTest(){cycle=null;rainControl.disabled=speedControl.disabled=false;testButton.textContent='测试 雨→径流→干涸 / 75 秒';}
  function reset(){regional.reset();local.reset();simSeconds=0;latest=null;regionalPending=0;waterActive=false;}
  document.getElementById('water-reset').onclick=()=>{endTest();reset();};
  document.getElementById('rain-stop').onclick=()=>{endTest();rainControl.value='0';};
  testButton.onclick=()=>{
   if(cycle){endTest();rainControl.value='0';return;}
   reset();rainControl.value='60';speedControl.value='30';context.setCoverage(.78);cycle={start:null,stage:'raining',records:[]};
-  rainControl.disabled=speedControl.disabled=true;testButton.textContent='Stop rain / dry test';delete document.body.dataset.rainTest;
+  rainControl.disabled=speedControl.disabled=true;testButton.textContent='停止降雨 / 干涸测试';delete document.body.dataset.rainTest;
  };
  async function collect(time){
   reading=true;
@@ -222,7 +222,7 @@ export async function createTerrainWater(renderer,material,context){
    const balance=sums[0]+sums[1]-sums[3];
    latest={simSeconds,meanSurfaceMm:sums[0],meanSoilMm:sums[1],meanFluxMmPerSecond:sums[2],netSupplyMm:sums[3],balanceErrorMm:balance,rainRate:rainRate.value,stage:cycle?.stage||'interactive'};
    document.body.dataset.hydrology=JSON.stringify(latest);
-   status.textContent=`${rainRate.value>0?'Raining':'Drying'} / ground ${sums[1].toFixed(2)} mm / runoff ${sums[2].toFixed(4)} mm/s / ${(simSeconds/3600).toFixed(2)} h`;
+   status.textContent=`${rainRate.value>0?'降雨中':'干涸中'} / 地面 ${sums[1].toFixed(2)} mm / 径流 ${sums[2].toFixed(4)} mm/s / ${(simSeconds/3600).toFixed(2)} h`;
    if(cycle)cycle.records.push({...latest,time});
   }finally{reading=false;}
  }

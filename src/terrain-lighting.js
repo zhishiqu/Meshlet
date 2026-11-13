@@ -161,7 +161,7 @@ fn terrainAtmosphere(uv: vec2<f32>, depth: f32, base: vec3<f32>, clouds: vec4<f3
  return vec4<f32>(result*(1.0-clouds.a)+clouds.rgb,1.0);
 }`, [skyRadiance,reconstruct,rainShaftNoise]);
 
-async function bytes(url){const r=await fetch(url);if(!r.ok)throw Error('Lighting asset failed: '+url);return r.arrayBuffer();}
+async function bytes(url){const r=await fetch(url);if(!r.ok)throw Error('光照资产加载失败: '+url);return r.arrayBuffer();}
 function halfTexture(buffer,size){
  const t=new THREE.DataTexture(new Uint16Array(buffer),size,size,THREE.RGBAFormat,THREE.HalfFloatType);
  t.minFilter=THREE.LinearFilter;t.magFilter=THREE.LinearFilter;t.needsUpdate=true;return t;
@@ -217,7 +217,7 @@ export async function createTerrainLighting(renderer,scene,camera,material,heigh
  coverageControl.addEventListener('input',()=>{coverage.value=Number(coverageControl.value);shadowUpdated=-Infinity;});
  document.getElementById('cloud-pause').addEventListener('change',e=>paused=e.target.checked);
  document.getElementById('exposure').addEventListener('input',e=>renderer.toneMappingExposure=Number(e.target.value));
- document.getElementById('lighting-status').textContent=`Baked path lighting / ${meta.maxDiffuseBounces} bounces / volumetric clouds`;
+ document.getElementById('lighting-status').textContent=`烘焙路径光照 / ${meta.maxDiffuseBounces} 次反弹 / 体积云层`;
  const water=await createTerrainWater(renderer,material,{shadowTarget,refractionTarget,heightBuffer,terrainMeta,camera,sunDirection,sunEnergy,
   setCoverage(value){coverage.value=value;coverageControl.value=String(value);shadowUpdated=-Infinity;}});
  const heightTextureNode=texture(heightMap);
